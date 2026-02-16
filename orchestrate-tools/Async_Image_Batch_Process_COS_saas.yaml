@@ -1,0 +1,124 @@
+openapi: 3.0.3
+info:
+  title: Batch Image Processing Tool (Async + Callback)
+  version: "1.1.1-workshop"
+
+servers:
+  - url: https://wxo-fastapi-callback.264onkwcgnav.eu-de.codeengine.appdomain.cloud
+
+paths:
+  /batch-process-images:
+    post:
+      operationId: batchProcessImages
+      summary: Batch process all images from COS input bucket and store results in COS output bucket
+      description: >
+        Launches an asynchronous batch job. The server responds immediately with 202 Accepted,
+        then processes all images asynchronously and sends exactly one final callback payload
+        to the callbackUrl header.
+
+      parameters:
+        - in: header
+          name: callbackUrl
+          required: true
+          description: Callback URL provided by watsonx Orchestrate (case-sensitive)
+          schema:
+            type: string
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                  description: Instruction applied to all input images (natural language)
+
+      responses:
+        "202":
+          description: Accepted (job started asynchronously)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accepted, job_id]
+                properties:
+                  accepted:
+                    type: boolean
+                    example: true
+                  job_id:
+                    type: string
+                    description: Server-generated job identifier (UUID)
+
+      callbacks:
+        callback:
+          "{$request.header.callbackUrl}":
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - status
+                        - job_id
+                        - total_files
+                        - total_files_processed
+                        - processed
+                        - failed
+                        - duration_seconds
+                        - output_bucket
+                        - output_prefix
+                        - errors
+                      properties:
+                        status:
+                          type: string
+                          enum: [completed, completed_with_errors, failed]
+
+                        job_id:
+                          type: string
+
+                        total_files:
+                          type: integer
+
+                        total_files_processed:
+                          type: integer
+                          description: processed + fallback_local
+
+                        processed:
+                          type: integer
+                          description: Images processed via OpenAI
+
+                        failed:
+                          type: integer
+                          description: Images that failed completely
+
+                        fallback_local:
+                          type: integer
+                          nullable: true
+                          description: Images processed via local fallback (billing only)
+
+                        duration_seconds:
+                          type: number
+
+                        output_bucket:
+                          type: string
+
+                        output_prefix:
+                          type: string
+
+                        errors:
+                          type: array
+                          items:
+                            type: string
+
+                        error:
+                          type: string
+                          nullable: true
+                          description: Present only when status=failed
+              responses:
+                "200":
+                  description: OK

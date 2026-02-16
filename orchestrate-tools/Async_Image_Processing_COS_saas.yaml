@@ -1,0 +1,83 @@
+openapi: 3.0.3
+info:
+  title: Async Image Processing Tool (COS URL)
+  version: "1.0.0"
+
+servers:
+  - url: https://wxo-fastapi-callback.264onkwcgnav.eu-de.codeengine.appdomain.cloud
+
+paths:
+  /process-image-async:
+    post:
+      operationId: processImageAsyncToCos
+      parameters:
+        - in: header
+          name: callbackUrl
+          required: true
+          schema:
+            type: string
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+                - image_base64
+              properties:
+                prompt:
+                  type: string
+                filename:
+                  type: string
+                image_base64:
+                  type: string
+
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - accepted
+                  - job_id
+                properties:
+                  accepted:
+                    type: boolean
+                  job_id:
+                    type: string
+
+      callbacks:
+        callback:
+          '{$request.header.callbackUrl}':
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      required:
+                        - status
+                        - job_id
+                      properties:
+                        status:
+                          type: string
+                        job_id:
+                          type: string
+                        filename:
+                          type: string
+                        object_key:
+                          type: string
+                        result_url:
+                          type: string
+                        expires_in:
+                          type: integer
+                        error:
+                          type: string
+              responses:
+                "200":
+                  description: OK

@@ -1,0 +1,240 @@
+{
+  "spec": {
+    "kind": "flow",
+    "name": "Modify_images_in_folder_and_get_result_in_another_template",
+    "initiators": [],
+    "description": "Permet \u00e0 un utilisateur de lancer un traitement IA en masse sur un ensemble d\u2019images stock\u00e9es dans IBM Cloud Object Storage, \u00e0 partir d\u2019une simple instruction en langage naturel, et de r\u00e9cup\u00e9rer automatiquement les images modifi\u00e9es dans un dossier de sortie d\u00e9di\u00e9.",
+    "display_name": "Modify images in folder and get result in another",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "Instructions"
+      ],
+      "properties": {
+        "Instructions": {
+          "type": "string",
+          "default": "Am\u00e9liore cette photo de nourriture pour qu\u2019elle paraisse hautement app\u00e9tissante, fra\u00eeche et professionnelle, comme une image utilis\u00e9e sur Uber Eats ou un site de restauration premium.  Objectifs visuels :  Accentuer les couleurs naturelles des ingr\u00e9dients (sans les rendre artificielles), Mettre en valeur les textures (croustillant, fondant, juteux, cr\u00e9meux selon le plat), Ajouter une lumi\u00e8re douce et chaleureuse, type lumi\u00e8re naturelle de restaurant, Donner une impression de fra\u00eecheur et de qualit\u00e9 artisanale, Augmenter l\u00e9g\u00e8rement le contraste et la nettet\u00e9 sur le plat principal. Composition :  Garder le plat bien centr\u00e9 et lisible, pr\u00eat \u00e0 \u00eatre vu sur mobile,  Arri\u00e8re-plan simple, propre et l\u00e9g\u00e8rement flout\u00e9, Supprimer toute distraction visuelle inutile.  Style :  R\u00e9aliste, gourmand, professionnel,  Pas de style cartoon, pas d\u2019effet exag\u00e9r\u00e9 ou irr\u00e9aliste,  Fid\u00e8le au produit r\u00e9el (pas d\u2019ingr\u00e9dients ajout\u00e9s qui n\u2019existent pas).  R\u00e9sultat attendu : Une image qui donne imm\u00e9diatement envie de commander, optimis\u00e9e pour un usage commercial (menu en ligne, application de livraison, vitrine produit).",
+          "description": "Instructions donn\u00e9es par l'utilisateur pour modifier les images dans le dossier"
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Top-level fatal error message (only when status=failed)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Final status of the batch job"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Total batch duration in seconds"
+        },
+        "output_bucket": {
+          "type": "string",
+          "description": "COS bucket where results were stored"
+        },
+        "total_files_processed": {
+          "type": "integer",
+          "description": "Total number of images actually processed"
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "id": "7472e0b8-16fd-470c-94a1-95258b9f8d9d",
+      "end": "tool_cf74320b-7dd6-40bb-94ba-0bb58ac534c7",
+      "start": "__start__"
+    },
+    {
+      "id": "6e42168a-9a6c-4c77-92d6-6a0854f3b602",
+      "end": "__end__",
+      "start": "tool_cf74320b-7dd6-40bb-94ba-0bb58ac534c7"
+    }
+  ],
+  "nodes": {
+    "__end__": {
+      "spec": {
+        "kind": "end",
+        "name": "__end__",
+        "position": {
+          "x": 0,
+          "y": 300
+        }
+      }
+    },
+    "__start__": {
+      "spec": {
+        "kind": "start",
+        "name": "__start__",
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "tool_cf74320b-7dd6-40bb-94ba-0bb58ac534c7": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_cf74320b-7dd6-40bb-94ba-0bb58ac534c7",
+        "tool": "batchProcessImages:8e2c44c6-8827-4f9b-a509-72c883622eae",
+        "position": {
+          "x": 0,
+          "y": 155
+        },
+        "description": "Launches an asynchronous batch job that lists all images in a COS input bucket/prefix, applies the same prompt-based transformation to each image, uploads results to a COS output bucket/prefix, and finally POSTs a single completion payload to the provided callbackUrl header.\n",
+        "display_name": "Batch process all images from COS input bucket and store results in COS output bucket",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "prompt"
+          ],
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "Instruction applied to all input images (natural language)"
+            }
+          }
+        },
+        "output_schema": {
+          "type": "object",
+          "required": [
+            "errors",
+            "failed",
+            "job_id",
+            "status",
+            "processed",
+            "total_files",
+            "output_bucket",
+            "output_prefix",
+            "duration_seconds",
+            "total_files_processed"
+          ],
+          "properties": {
+            "error": {
+              "type": "string",
+              "description": "Present only when status=failed"
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "failed": {
+              "type": "integer",
+              "description": "Images that failed completely"
+            },
+            "job_id": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "completed",
+                "completed_with_errors",
+                "failed"
+              ],
+              "type": "string"
+            },
+            "processed": {
+              "type": "integer",
+              "description": "Images processed via OpenAI"
+            },
+            "total_files": {
+              "type": "integer"
+            },
+            "output_bucket": {
+              "type": "string"
+            },
+            "output_prefix": {
+              "type": "string"
+            },
+            "fallback_local": {
+              "type": "integer",
+              "description": "Images processed via local fallback (billing only)"
+            },
+            "duration_seconds": {
+              "type": "number"
+            },
+            "total_files_processed": {
+              "type": "integer",
+              "description": "processed + fallback_local"
+            }
+          }
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong while running 'Batch process all images from COS input bucket and store results in COS output bucket'",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [
+            {
+              "metadata": {
+                "assignmentType": "variable"
+              },
+              "has-no-value": false,
+              "target_variable": "self.input.prompt",
+              "value_expression": "flow.input.Instructions"
+            }
+          ],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "metadata": {
+    "llm_model": "groq/openai/gpt-oss-120b",
+    "source_kind": "ui",
+    "is_system_generated_description": false
+  },
+  "output_map": {
+    "spec": {
+      "maps": [
+        {
+          "metadata": {
+            "assignmentType": "variable"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.duration",
+          "value_expression": "flow[\"Batch process all images from COS input bucket and store results in COS output bucket\"].output.duration_seconds"
+        },
+        {
+          "metadata": {
+            "assignmentType": "variable"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.output_bucket",
+          "value_expression": "flow[\"Batch process all images from COS input bucket and store results in COS output bucket\"].output.output_bucket"
+        },
+        {
+          "metadata": {
+            "assignmentType": "variable"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.status",
+          "value_expression": "flow[\"Batch process all images from COS input bucket and store results in COS output bucket\"].output.status"
+        },
+        {
+          "metadata": {
+            "assignmentType": "variable"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.total_files_processed",
+          "value_expression": "flow[\"Batch process all images from COS input bucket and store results in COS output bucket\"].output.total_files"
+        }
+      ],
+      "name": "",
+      "fallback_strategy": "ask_the_user"
+    }
+  }
+}

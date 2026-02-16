@@ -1,0 +1,359 @@
+{
+  "spec": {
+    "kind": "flow",
+    "name": "Modify_one_image_and_save_result_template",
+    "initiators": [],
+    "description": "Workflow interactif permettant \u00e0 l\u2019utilisateur de fournir une image et une instruction, de traiter l\u2019image via un tool asynchrone, puis de stocker le r\u00e9sultat dans IBM Cloud Object Storage avec un acc\u00e8s via URL s\u00e9curis\u00e9e.",
+    "display_name": "Modify one image and save result",
+    "input_schema": {},
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "URL_image": {
+          "type": "string",
+          "description": "URL where is saved the result of the image"
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "id": "c7dac27c-8b5e-4af5-b2bb-4eeb81d3d68e",
+      "end": "UserActivity 1",
+      "start": "__start__"
+    },
+    {
+      "id": "87ea8726-6897-4b2c-bfa1-7ad051254563",
+      "end": "tool_1f6d247e-5f50-44a7-b238-a8a14cca7a00",
+      "start": "UserActivity 1"
+    },
+    {
+      "id": "aacc6267-177c-4805-89a4-e8882e3d661f",
+      "end": "CodeBlock 1",
+      "start": "tool_1f6d247e-5f50-44a7-b238-a8a14cca7a00"
+    },
+    {
+      "id": "9bb614e1-3702-4381-847c-26e13d1bb0ee",
+      "end": "CodeBlock 2",
+      "start": "CodeBlock 1"
+    },
+    {
+      "id": "65557866-1077-4929-951a-cd887ab3e2be",
+      "end": "__end__",
+      "start": "CodeBlock 2"
+    }
+  ],
+  "nodes": {
+    "__end__": {
+      "spec": {
+        "kind": "end",
+        "name": "__end__",
+        "position": {
+          "x": 0,
+          "y": 1145.961137000422
+        }
+      }
+    },
+    "__start__": {
+      "spec": {
+        "kind": "start",
+        "name": "__start__",
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "CodeBlock 1": {
+      "spec": {
+        "fn": "self.output.document_name = system.file.get_name(flow[\"User activity 1\"].Upload.output.Image)\n\nvalue = flow[\"convert bytes to base64\"].output\n\nstart = \"ToolResponse(content=\"\nend = \", context_updates=\"\n\nstart_idx = value.find(start)\nend_idx = value.find(end)\n\nif start_idx == -1 or end_idx == -1 or end_idx <= start_idx:\n        raise ValueError(\"Format ToolResponse invalide ou non reconnu\")\n\nself.output.content_image_b64 = value[start_idx + len(start):end_idx]",
+        "kind": "script",
+        "name": "CodeBlock 1",
+        "position": {
+          "x": 0,
+          "y": 710.6094797681812
+        },
+        "display_name": "Get infos image",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "document_name": {
+              "type": "string",
+              "description": "Name of document"
+            },
+            "content_image_b64": {
+              "type": "string",
+              "description": "Content of the image in base 64"
+            }
+          }
+        }
+      }
+    },
+    "CodeBlock 2": {
+      "spec": {
+        "fn": "self.output.URL_final = \"changer\"",
+        "kind": "script",
+        "name": "CodeBlock 2",
+        "position": {
+          "x": 0,
+          "y": 999.961137000422
+        },
+        "display_name": "Result",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "URL_final": {
+              "type": "string",
+              "description": ""
+            }
+          }
+        }
+      }
+    },
+    "UserActivity 1": {
+      "spec": {
+        "kind": "user_flow",
+        "name": "UserActivity 1",
+        "position": {
+          "x": -20,
+          "y": 201
+        },
+        "dimensions": {
+          "width": 286,
+          "height": 312
+        },
+        "initiators": [],
+        "display_name": "User activity 1"
+      },
+      "edges": [
+        {
+          "id": "6e0110c0-ec97-4a2b-8596-7679f3529a76",
+          "end": "user_6ef24ad3-6db1-4002-b85a-bbd507447925",
+          "start": "UserActivity 1__start__"
+        },
+        {
+          "id": "940c9039-cfdb-46e9-9189-7d0f99814c1e",
+          "end": "UserActivity 1__end__",
+          "start": "user_6ef24ad3-6db1-4002-b85a-bbd507447925"
+        }
+      ],
+      "nodes": {
+        "UserActivity 1__end__": {
+          "spec": {
+            "kind": "end",
+            "name": "UserActivity 1__end__",
+            "position": {
+              "x": 20,
+              "y": 264
+            }
+          }
+        },
+        "UserActivity 1__start__": {
+          "spec": {
+            "kind": "start",
+            "name": "UserActivity 1__start__",
+            "position": {
+              "x": 20,
+              "y": 0
+            }
+          }
+        },
+        "user_6ef24ad3-6db1-4002-b85a-bbd507447925": {
+          "spec": {
+            "form": {
+              "name": "form_2a82db91-e812-4756-8f92-4f418479c282",
+              "fields": [
+                {
+                  "kind": "text",
+                  "name": "field_1526c41b-a297-4181-9951-7a1b701c16c5",
+                  "uiSchema": {
+                    "ui:title": "Prompt",
+                    "ui:widget": "TextWidget",
+                    "ui:placeholder": "Veuillez donner l'instruction pour modifier votre image"
+                  },
+                  "direction": "input",
+                  "input_map": {
+                    "spec": {
+                      "maps": [],
+                      "name": ""
+                    }
+                  },
+                  "display_name": "Prompt",
+                  "input_schema": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {},
+                    "additionalProperties": false
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "uiSchemaParkingLot": {}
+                },
+                {
+                  "kind": "file",
+                  "name": "field_7c65c8d7-a22f-4927-85bc-17f24b29b474",
+                  "uiSchema": {
+                    "ui:title": "Image",
+                    "ui:widget": "FileUpload",
+                    "ui:upload_button_label": ""
+                  },
+                  "direction": "input",
+                  "input_map": {
+                    "spec": {
+                      "maps": [],
+                      "name": ""
+                    }
+                  },
+                  "display_name": "Image",
+                  "input_schema": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {},
+                    "additionalProperties": false
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "format": "wxo-file"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "uiSchemaParkingLot": {}
+                }
+              ],
+              "buttons": [
+                {
+                  "kind": "submit",
+                  "name": "submit",
+                  "edge_id": "940c9039-cfdb-46e9-9189-7d0f99814c1e",
+                  "visible": true,
+                  "display_name": "Submit"
+                },
+                {
+                  "kind": "cancel",
+                  "name": "cancel",
+                  "visible": true,
+                  "display_name": "Cancel"
+                }
+              ],
+              "jsonSchema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "field_1526c41b-a297-4181-9951-7a1b701c16c5": {
+                    "type": "string",
+                    "title": "Prompt"
+                  },
+                  "field_7c65c8d7-a22f-4927-85bc-17f24b29b474": {
+                    "type": "array",
+                    "items": {},
+                    "multi": false,
+                    "title": "Image",
+                    "file_types": [
+                      ".jpeg",
+                      ".jpg",
+                      ".png"
+                    ],
+                    "description": "Veuillez upload l'image que vous voulez modifier",
+                    "file_max_size": 10
+                  }
+                },
+                "additionalProperties": false
+              },
+              "display_name": "Form 1"
+            },
+            "kind": "user",
+            "name": "user_6ef24ad3-6db1-4002-b85a-bbd507447925",
+            "fields": [],
+            "owners": [],
+            "position": {
+              "x": 20,
+              "y": 110
+            },
+            "display_name": "Upload"
+          }
+        }
+      },
+      "schemas": {}
+    },
+    "tool_1f6d247e-5f50-44a7-b238-a8a14cca7a00": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_1f6d247e-5f50-44a7-b238-a8a14cca7a00",
+        "tool": "bytes_to_base64_minVersion:e9844253-8e8e-4373-889c-62f3cf39d8b1",
+        "position": {
+          "x": 0,
+          "y": 564.6094797681812
+        },
+        "description": "Convert raw bytes to Base64 encoded string. Useful for binary data conversion.",
+        "display_name": "convert bytes to base64",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "data"
+          ],
+          "properties": {
+            "data": {
+              "type": "string",
+              "title": "Data",
+              "format": "binary"
+            }
+          }
+        },
+        "output_schema": {
+          "type": "string"
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong while running 'convert bytes to base64'",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [
+            {
+              "metadata": {
+                "assignmentType": "variable"
+              },
+              "has-no-value": false,
+              "target_variable": "self.input.data",
+              "value_expression": "flow[\"User activity 1\"].Upload.output.Image"
+            }
+          ],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "metadata": {
+    "llm_model": "groq/openai/gpt-oss-120b",
+    "source_kind": "ui",
+    "is_system_generated_description": false
+  },
+  "output_map": {
+    "spec": {
+      "maps": [],
+      "name": "",
+      "fallback_strategy": "ask_the_user"
+    }
+  }
+}
