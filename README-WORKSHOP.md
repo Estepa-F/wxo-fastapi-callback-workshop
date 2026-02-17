@@ -20,12 +20,14 @@ WORKSHOP_TOKEN=wxo-workshop-casino-2026
 Les participants doivent alors inclure ce header dans toutes leurs requêtes:
 
 ```bash
-curl -X POST http://your-server:8000/process-image-async-b64 \
+curl -X POST https://your-server/process-image-async-b64 \
   -H "x-workshop-token: wxo-workshop-casino-2026" \
-  -H "callbackUrl: http://callback-url" \
+  -H "callbackUrl: https://your-callback-url/callback" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "...", "image_base64": "..."}'
 ```
+
+> **💡 En SaaS :** Utilisez `https://` pour l'API et un `callbackUrl` HTTPS public.
 
 **Avantages:**
 - Empêche l'utilisation non autorisée pendant les workshops
@@ -49,6 +51,8 @@ CALLBACK_TIMEOUT_SECONDS=30         # Timeout par tentative
 1. Première tentative immédiate
 2. Si échec → attendre 1s → 2ème tentative
 3. Si échec → attendre 3s → 3ème tentative (finale)
+
+> **Note :** Les valeurs de `CALLBACK_BACKOFF_SECONDS` sont utilisées séquentiellement entre les tentatives ; si plus de valeurs sont fournies que nécessaires, les dernières sont ignorées.
 
 **Avantages:**
 - Résiste aux problèmes réseau temporaires
@@ -130,9 +134,11 @@ curl http://localhost:8000/health
   "max_concurrent_jobs": 10,
   "callback_retries": 3,
   "fallback_single_enabled": true,
-  "workshop_token_enabled": true
+  "workshop_token_enabled": false
 }
 ```
+
+> **Note :** `workshop_token_enabled` passe à `true` si `WORKSHOP_TOKEN` est défini.
 
 ---
 
@@ -167,10 +173,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 # Health check
 curl http://localhost:8000/health
 
-# Test avec token
+# Test avec token (uniquement si WORKSHOP_TOKEN est défini côté serveur)
 curl -X POST http://localhost:8000/process-image-async-b64 \
   -H "x-workshop-token: votre-token-ici" \
-  -H "callbackUrl: http://callback-url" \
+  -H "callbackUrl: http://localhost:8001/callback" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "add a sunset", "image_base64": "..."}'
 ```
@@ -204,7 +210,7 @@ docker run -p 8000:8000 --env-file .env wxo-image-workshop
 |----------------|----------|----------|
 | Callback retries | ❌ Non | ✅ Oui (3x avec backoff) |
 | Workshop token | ❌ Non | ✅ Optionnel |
-| Fallback single | ❌ Batch uniquement | ✅ Tous endpoints (billing only) |
+| Fallback single | ⚠️ Selon config | ✅ Single endpoints (billing only) |
 | Limites concurrence | ❌ Non | ✅ Oui (configurable) |
 | Validation taille | ❌ Basique | ✅ Stricte |
 | Health détaillé | ❌ Simple | ✅ Complet |

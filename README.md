@@ -1,7 +1,7 @@
 # 📸 WXO – Traitement d'Images Asynchrone avec OpenAI & IBM Cloud Object Storage
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com)
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org)
 [![OpenAI](https://img.shields.io/badge/OpenAI-API-412991.svg)](https://openai.com)
 [![IBM Cloud](https://img.shields.io/badge/IBM%20Cloud-Object%20Storage-054ADA.svg)](https://www.ibm.com/cloud/object-storage)
 
@@ -22,7 +22,7 @@
 
 ## 📌 Vue d'ensemble
 
-Outils de traitement d'images asynchrone pour **IBM watsonx Orchestrate (WXO)** avec transformations IA via OpenAI et stockage persistant dans IBM Cloud Object Storage.
+Outils de traitement d'images asynchrone pour **IBM WatsonX Orchestrate (WXO)** avec transformations IA via OpenAI et stockage persistant dans IBM Cloud Object Storage.
 
 ### Architecture
 
@@ -33,14 +33,14 @@ WXO → FastAPI → OpenAI
 ```
 
 > **💡 Philosophie de Conception :**
-> Ce projet est **prêt pour la production par conception** (patterns asynchrones, gestion d'erreurs, observabilité), mais intentionnellement simplifié (tâches en arrière-plan in-process) pour des **fins de démonstration et d'enablement**. Voir [ARCHITECTURE.md](ARCHITECTURE.md) pour les options de mise à l'échelle en production.
+> Ce projet est **prêt pour la production par conception** (patterns asynchrones, gestion d'erreurs, observabilité), mais intentionnellement simplifié (tâches en arrière-plan in-process) pour des **fins de démonstration et d'enablement**. Le serveur exécute les jobs en background in-process (OK démo/workshop) ; pour production, voir [ARCHITECTURE.md](ARCHITECTURE.md) (queue externe recommandée). Ce mode implique qu'un redémarrage du conteneur entraîne la perte des jobs en cours.
 
 ### Fonctionnalités Clés
 
 ✅ **Traitement d'image unique** avec IA (édition d'images OpenAI)
 ✅ **Traitement d'images par lot** depuis IBM Cloud Object Storage
 ✅ **Exécution asynchrone** avec mécanisme de callback
-✅ **Fallback local** quand la limite de facturation OpenAI est atteinte
+✅ **Fallback local** uniquement sur billing_hard_limit_reached (limite de facturation OpenAI)
 ✅ **Prêt pour l'entreprise** pour démos, prototypage et workflows de production
 
 ---
@@ -57,7 +57,7 @@ Traiter une image, la stocker dans IBM Cloud Object Storage et retourner une URL
 Appliquer la même instruction IA à toutes les images d'un dossier de bucket COS.
 
 **Partie 4 – Planificateur**  
-Déclencher le traitement par lot selon un planning en utilisant les capacités de planification de watsonx Orchestrate.
+Déclencher le traitement par lot selon un planning en utilisant les capacités de planification de WatsonX Orchestrate.
 
 ---
 
@@ -67,7 +67,7 @@ Déclencher le traitement par lot selon un planning en utilisant les capacités 
 Les opérations IA de longue durée nécessitent une exécution non-bloquante pour maintenir la réactivité du système.
 
 ✅ **Orchestrate permet les workflows de longue durée**  
-Le mécanisme de callback de watsonx Orchestrate permet aux workflows de continuer pendant l'attente du traitement IA.
+Le mécanisme de callback de WatsonX Orchestrate permet aux workflows de continuer pendant l'attente du traitement IA.
 
 ✅ **Séparation de l'orchestration et du fournisseur IA**  
 Découpler la logique d'orchestration des services IA permet la flexibilité et facilite le changement de fournisseur.
@@ -94,8 +94,6 @@ Ce pattern est indispensable pour :
 
 ---
 
----
-
 ## 🚀 Démarrage Rapide
 
 ### ⚡ Chemin le Plus Rapide (5 minutes)
@@ -108,6 +106,8 @@ cp .env.example .env
 # 2. Créer et activer l'environnement virtuel
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Note: Si vous utilisez l'ADK/Agent Builder qui attend venv/, remplacez .venv par venv
 
 # 3. Charger les variables
 set -a && source .env && set +a
@@ -132,7 +132,7 @@ bash scripts/test_local.sh
 - **Python 3.10+** (3.9+ supporté, 3.10+ recommandé)
 - **IBM Cloud Object Storage** avec identifiants HMAC
 - **Clé API OpenAI** depuis https://platform.openai.com/api-keys
-- **Pour le développement local sur Mac** : VM Lima avec watsonX Orchestrate ADK
+- **Pour le développement local sur Mac** : VM Lima avec WatsonX Orchestrate ADK
 
 ### Installation
 
@@ -253,11 +253,11 @@ def cb(data: dict):
     print(data)
     return {"ok": True}
 
-uvicorn.run(app, host="127.0.0.1", port=9999)
+uvicorn.run(app, host="0.0.0.0", port=9999)
 PY
 ```
 
-> **💡 Note :** Si vous utilisez un tunnel ou une VM, démarrez le callback sur `0.0.0.0` au lieu de `127.0.0.1`.
+> **💡 Note :** Si local strict (pas de tunnel/VM), `127.0.0.1` suffit.
 
 #### 2. Traiter une Image
 
@@ -280,7 +280,7 @@ Vous devriez voir :
 
 ---
 
-## 🖥️ Développement Local avec watsonX Orchestrate (Mac + VM Lima)
+## 🖥️ Développement Local avec WatsonX Orchestrate (Mac + VM Lima)
 
 ### Architecture
 
@@ -290,7 +290,7 @@ Mac (Hôte)
 │   └── http://0.0.0.0:8000
 │
 └── VM Lima (ibm-watsonx-orchestrate)
-    ├── watsonX Orchestrate ADK (port 4321)
+    ├── WatsonX Orchestrate ADK (port 4321)
     │   └── Accessible via tunnel SSH : localhost:14321
     │
     └── Accès à l'hôte Mac via : host.lima.internal:8000
@@ -341,7 +341,7 @@ curl http://host.lima.internal:8000/health
 
 **6. Importer les Outils :**
 
-Importez ces fichiers depuis `orchestrate-tools/` dans watsonX Orchestrate :
+Importez ces fichiers depuis `orchestrate-tools/` dans WatsonX Orchestrate :
 - Fichiers YAML comme outils API
 - Fichier Python comme outil Python  
 - Fichiers JSON comme workflows
@@ -401,7 +401,7 @@ Avant de commencer, vérifiez ces points pour éviter les problèmes courants :
 | **[API.md](API.md)** | Référence API complète avec endpoints, schémas et exemples |
 | **[CONFIGURATION.md](CONFIGURATION.md)** | Variables d'environnement et guide de configuration |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | Architecture technique, patterns et décisions de conception |
-| **[orchestrate-tools/README.md](orchestrate-tools/README.md)** | Guide d'intégration watsonX Orchestrate |
+| **[orchestrate-tools/README.md](orchestrate-tools/README.md)** | Guide d'intégration WatsonX Orchestrate |
 
 ---
 
@@ -410,7 +410,7 @@ Avant de commencer, vérifiez ces points pour éviter les problèmes courants :
 - 🎨 **Démos produit** – Présenter les capacités IA
 - 🏢 **Workshops clients** – Formation pratique
 - 🚀 **Accélérateurs internes** – Prototypage rapide
-- 📚 **Bonnes pratiques watsonx Orchestrate** – Implémentation de référence
+- 📚 **Bonnes pratiques WatsonX Orchestrate** – Implémentation de référence
 
 ---
 
@@ -426,7 +426,7 @@ Avant de commencer, vérifiez ces points pour éviter les problèmes courants :
 
 ## 🤝 Contribution
 
-Ceci est un projet de démonstration pour IBM watsonx Orchestrate. Pour questions ou suggestions, veuillez contacter le mainteneur.
+Ceci est un projet de démonstration pour IBM WatsonX Orchestrate. Pour questions ou suggestions, veuillez contacter le mainteneur.
 
 ---
 

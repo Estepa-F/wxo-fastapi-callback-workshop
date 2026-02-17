@@ -80,6 +80,8 @@ Architecture technique détaillée et décisions de conception pour le service d
 2. Traiter en arrière-plan
 3. Notifier via callback quand terminé
 
+> **Important :** Ici "arrière-plan" signifie in-process via FastAPI BackgroundTasks ; un redémarrage de l'instance annule les jobs en cours.
+
 **Avantages :**
 - Opérations non-bloquantes
 - Meilleure utilisation des ressources
@@ -91,9 +93,9 @@ Architecture technique détaillée et décisions de conception pour le service d
 
 **Solution :** Implémenter une dégradation gracieuse avec détection précise :
 1. Essayer le service principal (OpenAI)
-2. Détecter l'erreur spécifique via `_looks_like_openai_billing_limit(msg)` qui matche `billing_hard_limit_reached` ou "Billing hard limit"
+2. Détecter l'erreur spécifique via une fonction helper (ex: `_looks_like_openai_billing_limit(...)`) ou un matching équivalent sur le message d'erreur
 3. **Uniquement** sur cette erreur, basculer vers le traitement local (PIL/Pillow)
-4. Toute autre erreur OpenAI est renvoyée dans `error` pour faciliter le debug
+4. Toute autre erreur OpenAI est renvoyée dans le payload de callback : champ `error` pour les endpoints single (avec `status=failed`) et/ou ajoutée dans `errors[]` pour le batch, afin de faciliter le debug
 5. Suivre l'utilisation du fallback dans les métriques
 
 > **Note :** Le fallback n'est **pas** déclenché sur toutes les erreurs OpenAI (ex: erreurs réseau, timeouts, etc.), seulement sur la limite de facturation.
@@ -206,6 +208,8 @@ def local_fallback_process(image_bytes: bytes) -> tuple[bytes, str, str]:
     draw.text((20, 20), "DEMO - FALLBACK (Limite de facturation OpenAI)", fill=(255, 0, 0, 200))
     
     img = Image.alpha_composite(img, overlay)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
     return buf.getvalue(), "image/png", "png"
 ```
 
@@ -286,7 +290,9 @@ async def post_callback(callback_url: str, payload: dict) -> None:
    ├─ Appeler l'API OpenAI
    ├─ Encoder le résultat → base64
    └─ POST vers callbackUrl
-      └─ {status, job_id, result_image_base64, result_mime_type}
+      └─ {status, job_id, filename, result_image_base64, result_mime_type, error?}
+      
+   Note: Le champ error est présent uniquement si status=failed
 
 4. Le client reçoit le callback
 ```
@@ -307,7 +313,9 @@ async def post_callback(callback_url: str, payload: dict) -> None:
    ├─ Télécharger vers COS
    ├─ Générer une URL pré-signée
    └─ POST vers callbackUrl
-      └─ {status, job_id, object_key, result_url, expires_in}
+      └─ {status, job_id, filename, object_key, result_url, expires_in, error?}
+      
+   Note: Le champ error est présent uniquement si status=failed
 
 4. Le client reçoit le callback
 ```
@@ -332,8 +340,9 @@ async def post_callback(callback_url: str, payload: dict) -> None:
    │  └─ Télécharger le résultat vers COS_OUTPUT_BUCKET
    ├─ Collecter les métriques (processed, failed, fallback_local)
    └─ POST vers callbackUrl (callback unique)
-      └─ {status, job_id, total_files, processed, failed, 
-          fallback_local, duration_seconds, output_prefix, errors}
+      └─ {status, job_id, total_files, processed, failed,
+          fallback_local, total_files_processed, duration_seconds,
+          output_bucket, output_prefix, errors}
 
 4. Le client reçoit le callback avec les résultats complets du lot
 ```
@@ -361,20 +370,19 @@ def _require_cos_config() -> None:
 try:
     out_bytes, out_mime, out_ext = edit_image_with_openai(img_bytes, req.prompt)
 except Exception as e:
-    if "billing_hard_limit_reached" in str(e):
-        # Basculer vers le traitement local
+    msg = str(e)
+    if "billing_hard_limit_reached" in msg:
         out_bytes, out_mime, out_ext = local_fallback_process(img_bytes)
         fallback_local += 1
     else:
-        # Enregistrer l'échec
         failed += 1
-        errors.append(f"{k}: {msg}")
+        errors.append(msg)
 ```
 
 **Stratégie :**
 - Détection d'erreur spécifique (`billing_hard_limit_reached` uniquement)
 - Fallback automatique sur cette erreur uniquement
-- Toutes les autres erreurs OpenAI sont propagées pour le debug
+- Toutes les autres erreurs OpenAI sont reportées telles quelles (single : `error` + `status=failed`, batch : entrée dans `errors[]` et incrément de `failed`), sans déclencher de fallback
 - Suivre les métriques pour l'observabilité
 
 ### 3. Erreurs de Callback (Logger et Continuer)

@@ -214,8 +214,14 @@ Depuis le JSON des identifiants générés :
 
 ### Tester la Configuration COS
 
+> **⚠️ Note :** Si `WORKSHOP_TOKEN` est configuré, le header `x-workshop-token` est requis.
+
 ```bash
+# Sans token
 curl http://localhost:8000/cos/config
+
+# Avec WORKSHOP_TOKEN (si configuré)
+curl http://localhost:8000/cos/config -H "x-workshop-token: ${WORKSHOP_TOKEN}"
 ```
 
 Réponse attendue :
@@ -371,7 +377,7 @@ binascii.Error: Invalid base64-encoded string
 ```
 
 **Cause :**
-Le serveur utilise `base64.b64decode(..., validate=True)` qui rejette les caractères invalides (espaces, retours ligne, etc.).
+Le serveur utilise `base64.b64decode(..., validate=True)` et exige un Base64 strict, sans espaces ni retours ligne.
 
 **Solution :**
 1. Retirer les retours ligne et espaces du base64

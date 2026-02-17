@@ -6,7 +6,7 @@ Mode d'emploi pour importer et utiliser les outils de traitement d'images dans I
 > Référence API du serveur : [API.md](../API.md) · Démarrage : [README.md](../README.md) · Configuration : [CONFIGURATION.md](../CONFIGURATION.md) · Conception : [ARCHITECTURE.md](../ARCHITECTURE.md)
 
 > **⚠️ Important - Comportement du Fallback :**
-> Le fallback local est déclenché **uniquement** sur `billing_hard_limit_reached`. Toute autre erreur OpenAI est renvoyée dans le champ `error` pour faciliter le debug.
+> Le fallback local est déclenché **uniquement** sur `billing_hard_limit_reached` et si `ENABLE_FALLBACK_SINGLE=true`. Toute autre erreur OpenAI est renvoyée dans le payload de callback : champ error pour les endpoints single, et/ou ajoutée dans errors[] pour le batch (selon le type d'échec).
 
 ---
 
@@ -22,7 +22,7 @@ Ce dossier contient tous les fichiers nécessaires pour intégrer le service de 
 
 ## 🔧 Outils API (YAML)
 
-### 1. `Async_Image_Processing_B64.yaml`
+### 1. `Async_Image_Processing_B64_saas.yaml`
 
 **Endpoint :** `/process-image-async-b64`  
 **Opération :** `processImageAsyncToBase64`
@@ -32,8 +32,10 @@ Traite une image et retourne le résultat encodé en Base64 directement dans le 
 
 **Entrées :**
 - `prompt` (string, requis) - Instruction en langage naturel
-- `image_base64` (string, requis) - Image source en Base64
+- `image_base64` (string, requis) - Image source en Base64 (sans préfixe `data:image/...;base64,`)
 - `filename` (string, optionnel) - Nom du fichier original
+
+> **⚠️ Format Base64 :** Fournir uniquement la chaîne Base64 brute, **sans** le préfixe `data:image/...;base64,`. WXO et le serveur attendent du Base64 pur.
 
 **Sorties (callback) :**
 - `status` - Généralement `completed` ou `failed`
@@ -46,7 +48,7 @@ Traite une image et retourne le résultat encodé en Base64 directement dans le 
 
 ---
 
-### 2. `Async_Image_Processing_COS.yaml`
+### 2. `Async_Image_Processing_COS_saas.yaml`
 
 **Endpoint :** `/process-image-async`  
 **Opération :** `processImageAsyncToCos`
@@ -56,8 +58,10 @@ Traite une image et stocke le résultat dans IBM Cloud Object Storage, retourne 
 
 **Entrées :**
 - `prompt` (string, requis) - Instruction en langage naturel
-- `image_base64` (string, requis) - Image source en Base64
+- `image_base64` (string, requis) - Image source en Base64 (sans préfixe `data:image/...;base64,`)
 - `filename` (string, optionnel) - Nom du fichier original
+
+> **⚠️ Format Base64 :** Fournir uniquement la chaîne Base64 brute, **sans** le préfixe `data:image/...;base64,`.
 
 **Sorties (callback) :**
 - `status` - Généralement `completed` ou `failed`
@@ -71,7 +75,7 @@ Traite une image et stocke le résultat dans IBM Cloud Object Storage, retourne 
 
 ---
 
-### 3. `Async_Image_Batch_Process_COS.yaml`
+### 3. `Async_Image_Batch_Process_COS_saas.yaml`
 
 **Endpoint :** `/batch-process-images`  
 **Opération :** `batchProcessImages`
@@ -88,8 +92,10 @@ Traite toutes les images d'un bucket COS avec la même instruction, stocke les r
 - `total_files` - Nombre total d'images trouvées
 - `processed` - Nombre d'images ayant produit une sortie dans le bucket de destination (OpenAI + fallback local)
 - `fallback_local` - Nombre d'images traitées via fallback local (incluses dans `processed`)
-- `failed` - Nombre d'images n'ayant produit aucune sortie
+- `failed` - Nombre d'images n'ayant produit aucune sortie (inclut également les erreurs d'upload COS après traitement réussi)
 - `total_files_processed` - Égal à `processed` (champ conservé pour compatibilité avec le schéma OpenAPI importé dans WXO)
+
+> **📊 Clarification des métriques :** Dans cette implémentation, `processed` compte les images ayant produit une sortie dans COS (OpenAI ou fallback). Le champ `fallback_local` précise combien en fallback. Le champ `total_files_processed` est conservé pour compatibilité et vaut `processed`.
 - `duration_seconds` - Durée totale du traitement
 - `output_bucket` - Bucket COS de destination
 - `output_prefix` - Préfixe/dossier des résultats
@@ -233,7 +239,7 @@ callbackUrl: <url-fournie-par-wxo>
 
 ### Schéma de Callback
 
-WXO s'attend à ce que le payload de callback corresponde **exactement** au schéma défini dans les YAML. Toute déviation causera une erreur.
+Dans nos tests WXO, tout écart au schéma OpenAPI (champs manquants, types incorrects, champs non déclarés) peut provoquer un rejet du callback.
 
 ⚠️ **Important :** Les champs doivent correspondre exactement aux YAML fournis. Même si certains champs sont redondants (ex: `total_files_processed`), ils sont conservés pour assurer la compatibilité stricte avec watsonX Orchestrate.
 

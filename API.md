@@ -30,7 +30,11 @@ Toute la configuration est gérée via des variables d'environnement. Voir [CONF
 
 **Validation rapide :**
 ```bash
+# Sans token
 curl "${BASE_URL}/cos/config"
+
+# Avec WORKSHOP_TOKEN (si configuré)
+curl "${BASE_URL}/cos/config" -H "x-workshop-token: ${WORKSHOP_TOKEN}"
 ```
 
 ---
@@ -46,11 +50,20 @@ Par défaut, aucune authentification n'est requise.
 > - Surveillez les coûts et l'utilisation pour détecter les abus
 
 **Workshop guard (optionnel)**
-Si la variable `WORKSHOP_TOKEN` est définie, tous les endpoints protégés exigent le header :
+Si la variable `WORKSHOP_TOKEN` est définie, les endpoints suivants exigent le header :
 
 ```http
 x-workshop-token: <WORKSHOP_TOKEN>
 ```
+
+**Endpoints protégés par WORKSHOP_TOKEN :**
+- `POST /process-image-async-b64`
+- `POST /process-image-async`
+- `POST /batch-process-images`
+- `GET /cos/config`
+
+**Endpoints non protégés :**
+- `GET /health`
 
 En production, implémentez un mécanisme d'authentification approprié (API keys, OAuth 2.0, JWT, etc.).
 
@@ -71,7 +84,7 @@ callbackUrl: https://votre-callback-endpoint.com/callback
 
 > **Important :**
 > - `callbackUrl` est sensible à la casse (pas `callbackurl` ou `CallbackUrl`)
-> - L'URL de callback doit être accessible publiquement en HTTPS depuis Code Engine
+> - L'URL de callback doit être accessible depuis l'instance Code Engine (généralement HTTPS public en environnement SaaS)
 
 Les endpoints `/health` et `/cos/config` ne nécessitent pas ces headers.
 
@@ -97,12 +110,6 @@ Vérifier si le service fonctionne.
   "workshop_token_enabled": false
 }
 ```
-
-> **Note sur le champ `mode` :**
-> - Valeurs possibles : `workshop` | `prod`
-> - Défini via la variable d'environnement `WORKSHOP_MODE` (défaut: `workshop`)
-> - En mode `workshop` : logs verbeux, comportements de debug activés
-> - En mode `prod` : logs optimisés, comportements de production
 
 **Codes de Statut :**
 - `200 OK` - Le service est opérationnel
@@ -324,6 +331,7 @@ x-workshop-token: <WORKSHOP_TOKEN>
   "processed": 5,
   "failed": 0,
   "fallback_local": 0,
+  "total_files_processed": 5,
   "duration_seconds": 12.345,
   "output_bucket": "wxo-images",
   "output_prefix": "results/batch/550e8400-e29b-41d4-a716-446655440000/",
@@ -340,12 +348,13 @@ x-workshop-token: <WORKSHOP_TOKEN>
   "processed": 5,
   "failed": 0,
   "fallback_local": 2,
+  "total_files_processed": 5,
   "duration_seconds": 15.678,
   "output_bucket": "wxo-images",
   "output_prefix": "results/batch/550e8400-e29b-41d4-a716-446655440000/",
   "errors": [
-    "image1.png: Limite de facturation OpenAI -> fallback local appliqué",
-    "image2.jpg: Limite de facturation OpenAI -> fallback local appliqué"
+    "demo/image1.png: OpenAI billing limit -> fallback local applied",
+    "demo/image2.jpg: OpenAI billing limit -> fallback local applied"
   ]
 }
 ```
@@ -365,7 +374,7 @@ x-workshop-token: <WORKSHOP_TOKEN>
   "output_bucket": "wxo-images",
   "output_prefix": "results/batch/550e8400-e29b-41d4-a716-446655440000/",
   "errors": [],
-  "error": "RuntimeError: Variable d'environnement manquante : COS_INPUT_BUCKET"
+  "error": "RuntimeError: Missing env var: COS_INPUT_BUCKET"
 }
 ```
 
@@ -376,7 +385,7 @@ x-workshop-token: <WORKSHOP_TOKEN>
 | `job_id` | string | Identifiant unique du job (UUID) |
 | `total_files` | integer | Nombre total d'images trouvées dans le bucket d'entrée |
 | `processed` | integer | Nombre d'images ayant produit une sortie dans le bucket de destination (OpenAI + fallback local) |
-| `failed` | integer | Images n'ayant produit aucune sortie |
+| `failed` | integer | Images n'ayant produit aucune sortie (inclut les échecs de traitement et les échecs d'upload COS) |
 | `fallback_local` | integer | Nombre d'images traitées via fallback local (incluses dans `processed`) |
 | `total_files_processed` | integer | Égal à `processed` (champ conservé pour compatibilité avec le schéma OpenAPI/WXO) |
 | `duration_seconds` | float | Temps de traitement total en secondes |
@@ -403,6 +412,11 @@ Nombre d'images traitées via le fallback local suite à l'erreur `billing_hard_
 
 **`failed`**
 Nombre d'images n'ayant produit aucune sortie (échec OpenAI + fallback + upload).
+
+**`total_files_processed`**
+Égal à `processed` (champ conservé pour compatibilité avec le schéma OpenAPI importé dans WXO).
+
+> **📊 Clarification des métriques :** Dans cette implémentation, `processed` compte les images ayant produit une sortie dans COS (OpenAI ou fallback). Le champ `fallback_local` précise combien en fallback. Le champ `total_files_processed` est conservé pour compatibilité et vaut `processed`.
 
 ### Valeurs de Statut
 
@@ -490,7 +504,7 @@ Quand la limite de facturation OpenAI est atteinte, le système bascule automati
 ```json
 {
   "fallback_local": 1,
-  "errors": ["image.png: Limite de facturation OpenAI -> fallback local appliqué"]
+  "errors": ["demo/image.png: OpenAI billing limit -> fallback local applied"]
 }
 ```
 
